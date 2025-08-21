@@ -1,0 +1,54 @@
+# .github/workflows/crawler.yml
+
+# 워크플로우의 이름 (GitHub Actions 탭에 표시됨)
+name: Crawl Duremidam Menu
+
+# 워크플로우가 실행될 조건 설정
+on:
+  # 1. 수동 실행: "Run workflow" 버튼을 통해 원할 때 실행 가능
+  workflow_dispatch:
+
+  # 2. 스케줄 실행: 매일 20:00 UTC에 실행 (한국 시간 KST 기준 새벽 5시)
+  schedule:
+    - cron: '0 20 * * *'
+
+# 실행될 작업(Job) 정의
+jobs:
+  build-and-run:
+    # 작업이 실행될 가상 환경 지정 (Ubuntu 최신 버전)
+    runs-on: ubuntu-latest
+
+    # 작업의 단계(Step)들
+    steps:
+      # 1. 저장소의 코드를 가상 환경으로 가져오기
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Python 3.10 버전 설치
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      # 3. 필요한 라이브러리 설치
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # 4. .env 파일 생성 (GitHub Secret을 사용하지 않는 정보)
+      - name: Create .env file
+        run: |
+          echo "FIREBASE_PROJECT_ID=snuecoapp-ee0ef" >> .env
+          echo "SNUCO_URL=https://snuco.snu.ac.kr/food-court/" >> .env
+          echo "FIREBASE_KEY_PATH=./serviceAccountKey.json" >> .env
+          
+      # 5. GitHub Secret에 저장된 Firebase 키를 실제 파일로 생성
+      - name: Create Firebase key file from secret
+        env:
+          FIREBASE_KEY_JSON: ${{ secrets.FIREBASE_KEY_JSON }}
+        run: echo "$FIREBASE_KEY_JSON" > serviceAccountKey.json
+
+      # 6. 파이썬 크롤러 스크립트 실행
+      - name: Run the crawler
+        run: python main.py
