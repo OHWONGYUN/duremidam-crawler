@@ -3,16 +3,17 @@
 import requests
 from bs4 import BeautifulSoup
 import config
-import logging # 로깅 모듈 추가
+import logging
 
 class SnucoCrawler:
-    def __init__(self):
-        self.name = "duremidam"
+    # 1. __init__ 메서드가 cafeteria_name을 인자로 받도록 수정
+    def __init__(self, cafeteria_name):
+        self.name = cafeteria_name # '두레미담' 대신 전달받은 이름 사용
         self.url = config.SNUCO_URL
-        self.logger = logging.getLogger(__name__) # 로거 가져오기
+        self.logger = logging.getLogger(__name__)
 
     def _parse_menu_text(self, text_block):
-        # ... (이 함수 내용은 변경 없음) ...
+        # (이 함수 내용은 변경 없음)
         if not text_block: return []
         lines = text_block.strip().splitlines()
         menu_items = []
@@ -31,7 +32,7 @@ class SnucoCrawler:
         return menu_items
 
     def crawl(self):
-        self.logger.info(f"'{self.name}' 메뉴 크롤링을 시작합니다...")
+        self.logger.info(f"🚀 '{self.name}' 메뉴 크롤링을 시작합니다...")
         try:
             response = requests.get(self.url)
             response.raise_for_status()
@@ -46,7 +47,8 @@ class SnucoCrawler:
         found = False
         for rest in restaurants:
             name_tag = rest.find("h4")
-            if name_tag and "두레미담" in name_tag.text:
+            # 2. 하드코딩된 "두레미담" 대신 self.name을 사용하도록 수정
+            if name_tag and self.name in name_tag.text:
                 found = True
                 menu_row = rest.find_next("tr")
                 if menu_row:
@@ -57,7 +59,7 @@ class SnucoCrawler:
                 break
         
         if not found:
-            self.logger.warning(f"'{self.name}'을 페이지에서 찾지 못했습니다. 사이트 구조가 변경되었을 수 있습니다.")
+            self.logger.warning(f"'{self.name}'을 페이지에서 찾지 못했습니다. 사이트 구조가 변경되었거나 식당 이름이 다를 수 있습니다.")
         else:
              self.logger.info(f"👍 '{self.name}' 메뉴 크롤링 완료.")
              self.logger.info(f"점심: {final_menu['lunch']}")

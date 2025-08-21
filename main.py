@@ -4,36 +4,48 @@ import logging
 from crawlers.snuco_crawler import SnucoCrawler
 import firebase_manager
 
+# --- 1. 크롤링할 식당 목록 관리 ---
+# 웹사이트에 표시되는 이름: Firebase에 저장될 영문 Key
+CAFETERIA_MAP = {
+    "두레미담": "duremidam",
+    "학생회관식당": "student_union"
+}
+# ---------------------------------
+
 def setup_logger():
-    """로그 설정을 초기화하는 함수"""
-    # 루트 로거를 설정합니다.
+    # (이 함수 내용은 변경 없음)
     logging.basicConfig(
-        level=logging.INFO, # INFO 레벨 이상의 로그를 기록
-        format='%(asctime)s - %(levelname)s - %(message)s', # 로그 형식
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
         handlers=[
-            logging.FileHandler("crawler.log"), # 파일에 로그를 기록
-            logging.StreamHandler() # 콘솔(터미널)에도 로그를 출력
+            logging.FileHandler("crawler.log"),
+            logging.StreamHandler()
         ]
     )
 
 def run_crawler():
-    """크롤러를 실행하고 결과를 DB에 업로드하는 메인 함수"""
     logger = logging.getLogger(__name__)
     logger.info("========================================")
     logger.info("🚀 크롤러 작업을 시작합니다.")
     
-    # 크롤러 인스턴스 생성
-    duremidam_crawler = SnucoCrawler()
-    
-    # 크롤링 실행
-    menu_data = duremidam_crawler.crawl()
-    
-    # 크롤링 결과가 있고, Firebase가 성공적으로 연결되면 업로드
-    if menu_data:
-        if firebase_manager.initialize_firebase():
-            firebase_manager.upload_menu(duremidam_crawler.name, menu_data)
+    # Firebase 초기화는 한 번만 실행
+    firebase_initialized = firebase_manager.initialize_firebase()
+    if not firebase_initialized:
+        logger.error("Firebase 초기화에 실패하여 크롤러를 중단합니다.")
+        return
+
+    # --- 2. 목록에 있는 모든 식당을 순회하며 크롤링 ---
+    for name_kr, name_en in CAFETERIA_MAP.items():
+        # SnucoCrawler를 생성할 때 식당 이름을 넘겨줌
+        crawler = SnucoCrawler(cafeteria_name=name_kr)
+        menu_data = crawler.crawl()
+        
+        if menu_data:
+            # Firebase에 업로드할 때는 영문 Key와 데이터를 넘겨줌
+            firebase_manager.upload_menu(cafeteria_name=name_en, menu_data=menu_data)
+    # ----------------------------------------------------
 
 if __name__ == "__main__":
-    setup_logger() # 로거 설정 먼저 실행
+    setup_logger()
     run_crawler()
     logging.info("👋 모든 크롤러 작업을 종료합니다.\n")
