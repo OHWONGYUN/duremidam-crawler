@@ -1,0 +1,16 @@
+# .gitignore
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+
+# dotenv
+.env
+
+# Log files
+*.log
