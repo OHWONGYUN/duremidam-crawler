@@ -12,20 +12,18 @@ class SnucoCrawler:
         self.url = config.SNUCO_URL
         self.logger = logging.getLogger(__name__)
 
-    def _parse_menu_text(self, menu_box):
-        """메뉴가 담긴 div 박스를 파싱하여 메뉴 리스트로 만드는 함수"""
-        if not menu_box:
-            return []
+    def _parse_menu_text(self, meal_cell_text):
+        """메뉴가 담긴 table cell의 텍스트를 파싱하는 함수"""
+        # splitlines()를 사용해 텍스트를 라인별로 나눔
+        raw_lines = meal_cell_text.strip().splitlines()
         
-        # p 태그들을 모두 찾아서 텍스트를 리스트로 만듭니다.
-        menu_items_raw = [p.get_text(strip=True) for p in menu_box.find_all("p")]
-        
-        # 빈 문자열과 특정 단어들을 걸러냅니다.
         menu_items = []
-        for item in menu_items_raw:
-            if item and '코너' not in item and '메뉴' not in item and not item.endswith('원'):
+        for line in raw_lines:
+            # 공백 제거
+            item = line.strip()
+            # 가격 정보, 빈 줄, 특정 단어들 제외
+            if item and not item.endswith('원') and '코너' not in item and '메뉴' not in item:
                 menu_items.append(item)
-        
         return menu_items
 
     def crawl(self):
@@ -44,37 +42,42 @@ class SnucoCrawler:
         
         soup = BeautifulSoup(response.text, "html.parser")
         
-        # --- 👇👇👇 여기가 완전히 새로워진 탐색 로직입니다! 👇👇👇 ---
+        # --- 👇👇👇 '식샤'와 동일한 방식으로 수정된 최종 로직입니다! 👇👇👇 ---
         
-        # 1. 'con-menu-box' 클래스를 가진 모든 식당 컨테이너를 찾습니다.
-        restaurants = soup.find_all("div", class_="con-menu-box")
+        # 1. 'menu-table' 클래스를 가진 <table>을 찾습니다.
+        table = soup.find("table", class_="menu-table")
+        if not table:
+            self.logger.warning("페이지에서 'menu-table'을 찾지 못했습니다.")
+            return None
+
         final_menu = {'lunch': [], 'dinner': []}
         found = False
 
-        for rest in restaurants:
-            # 2. 'p' 태그와 'name' 클래스를 가진 이름표를 찾습니다.
-            name_tag = rest.find("p", class_="name")
+        # 2. 테이블의 모든 행(<tr>)을 순회합니다. 각 행은 식당 하나를 의미합니다.
+        for row in table.find_all("tr"):
+            # 3. 행의 모든 셀(<td>)을 가져옵니다.
+            cells = row.find_all("td")
+            if not cells:
+                continue
+
+            # 4. 첫 번째 셀(cells[0])에서 식당 이름을 가져옵니다.
+            restaurant_name_from_web = cells[0].get_text(strip=True)
             
-            # 3. 이름이 일치하는 식당을 찾습니다.
-            if name_tag and self.name in name_tag.get_text(strip=True):
+            # 5. 우리가 찾던 식당 이름이 맞는지 확인합니다.
+            if self.name in restaurant_name_from_web:
                 found = True
                 
-                # 4. 해당 식당의 모든 메뉴 박스(조식, 중식, 석식)를 찾습니다.
-                menu_boxes = rest.find_all("div", class_="box-menu")
-                
-                # 5. 각 메뉴 박스에서 '중식'과 '석식'을 찾아 파싱합니다.
-                for box in menu_boxes:
-                    title_tag = box.find("p", class_="title")
-                    if title_tag:
-                        title_text = title_tag.get_text(strip=True)
-                        if "중식" in title_text:
-                            final_menu['lunch'] = self._parse_menu_text(box)
-                        elif "석식" in title_text:
-                            final_menu['dinner'] = self._parse_menu_text(box)
-                break
+                # 6. 나머지 셀들(cells[1:])을 순회하며 점심, 저녁 메뉴를 찾습니다.
+                for cell in cells[1:]:
+                    # 'class' 속성을 이용해 점심('lunch')과 저녁('dinner')을 구분합니다.
+                    if 'lunch' in cell.get('class', []):
+                        final_menu['lunch'] = self._parse_menu_text(cell.text)
+                    elif 'dinner' in cell.get('class', []):
+                        final_menu['dinner'] = self._parse_menu_text(cell.text)
+                break # 식당을 찾았으니 더 이상 순회할 필요 없음
         
-        # -----------------------------------------------------------
-        
+        # -----------------------------------------------------------------
+
         if not found:
             self.logger.warning(f"'{self.name}'을 페이지에서 찾지 못했습니다. 사이트 구조가 변경되었거나 식당 이름이 다를 수 있습니다.")
         else:
