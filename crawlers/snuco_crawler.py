@@ -4,16 +4,16 @@ import requests
 from bs4 import BeautifulSoup
 import config
 import logging
+import datetime # 👈 datetime 모듈 추가
 
 class SnucoCrawler:
-    # 1. __init__ 메서드가 cafeteria_name을 인자로 받도록 수정
     def __init__(self, cafeteria_name):
-        self.name = cafeteria_name # '두레미담' 대신 전달받은 이름 사용
-        self.url = config.SNUCO_URL
+        self.name = cafeteria_name
+        self.url = config.SNUCO_URL # 기본 URL
         self.logger = logging.getLogger(__name__)
 
+    # ... (_parse_menu_text 함수는 변경 없음) ...
     def _parse_menu_text(self, text_block):
-        # (이 함수 내용은 변경 없음)
         if not text_block: return []
         lines = text_block.strip().splitlines()
         menu_items = []
@@ -33,21 +33,30 @@ class SnucoCrawler:
 
     def crawl(self):
         self.logger.info(f"🚀 '{self.name}' 메뉴 크롤링을 시작합니다...")
+        
+        # --- 👇👇👇 여기가 핵심 수정 부분입니다! 👇👇👇 ---
+        # 오늘 날짜를 'YYYY-MM-DD' 형식으로 만듭니다.
+        today_str = datetime.date.today().strftime('%Y-%m-%d')
+        # 기본 URL에 날짜를 붙여 최종 URL을 완성합니다.
+        full_url = f"{self.url}?date={today_str}"
+        self.logger.info(f"접속할 URL: {full_url}")
+        # ----------------------------------------------
+        
         try:
-            response = requests.get(self.url)
+            # 완성된 full_url로 접속합니다.
+            response = requests.get(full_url)
             response.raise_for_status()
         except requests.exceptions.RequestException as e:
             self.logger.error(f"'{self.name}' 크롤링 실패: 웹 페이지를 가져올 수 없습니다. 오류: {e}")
             return None
         
         soup = BeautifulSoup(response.text, "html.parser")
+        # ... (이하 로직은 변경 없음) ...
         restaurants = soup.find_all("div", class_="widget-restaurant-menu-container")
         final_menu = {'lunch': [], 'dinner': []}
-
         found = False
         for rest in restaurants:
             name_tag = rest.find("h4")
-            # 2. 하드코딩된 "두레미담" 대신 self.name을 사용하도록 수정
             if name_tag and self.name in name_tag.text:
                 found = True
                 menu_row = rest.find_next("tr")

@@ -40,7 +40,7 @@ jobs:
       - name: Create .env file
         run: |
           echo "FIREBASE_PROJECT_ID=snuecoapp-ee0ef" >> .env
-          echo "SNUCO_URL=https://snuco.snu.ac.kr/food-court/" >> .env
+          echo "SNUCO_URL=https://snuco.snu.ac.kr/foodmenu/" >> .env
           echo "FIREBASE_KEY_PATH=./serviceAccountKey.json" >> .env
           
       # 5. GitHub Secret에 저장된 Firebase 키를 실제 파일로 생성
